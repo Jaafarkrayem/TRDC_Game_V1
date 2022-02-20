@@ -449,8 +449,10 @@ contract TRDCvalut is BEP20 {
     }
     function buyWeapon(uint weaponToBuy) external returns (string memory nameOfWeapon, uint powerOfWeapon){
         require(weapons.length !=0, "There are no Weapons yet");
+        uint priceOfWeapon = weapons[weaponToBuy].wPrice;
+        currency.transferFrom(msg.sender, address(this), priceOfWeapon);
         emit GetWeapon(nameOfWeapon = weapons[weaponToBuy].wName, powerOfWeapon = weapons[weaponToBuy].wPower); 
-        weaponsOwned[msg.sender].push(Weapons(nameOfWeapon, powerOfWeapon, 0));   
+        weaponsOwned[msg.sender].push(Weapons(nameOfWeapon, powerOfWeapon, priceOfWeapon));   
     }
     function deletePlayerThiefCard(uint cardsIndex) internal{
        thiefCardsOwned[msg.sender][cardsIndex] = thiefCardsOwned[msg.sender][thiefCardsOwned[msg.sender].length -1];
@@ -550,7 +552,7 @@ contract TRDCvalut is BEP20 {
       }
       uint priceOfCards;
       priceOfCards = cardPrice.mul(amountOfCards);
-      //currency.transferFrom(msg.sender, address(this), priceOfCards);//Trasfer from User to this contract TRDC token (price of game card)
+      currency.transferFrom(msg.sender, address(this), priceOfCards);//Trasfer from User to this contract TRDC token (price of game card)
       for (uint i=0; i<amountOfCards; i++){
           buyCard();
       }
