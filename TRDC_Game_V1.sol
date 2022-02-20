@@ -265,11 +265,7 @@ contract TRDCvalut is BEP20 {
     uint public _rate1 = 5;
     uint public _rate2 = 0;
     uint _give;
-    
-    uint rewardsToGive;
-    uint groupRewards1;
-    uint groupRewards2;
-    
+     
     struct CardThief{
         string tName;
         uint tPower;
@@ -281,6 +277,7 @@ contract TRDCvalut is BEP20 {
     struct Weapons{
         string wName;
         uint wPower;
+        uint wPrice;
     }
     struct Banks{
         string bankName;
@@ -290,15 +287,18 @@ contract TRDCvalut is BEP20 {
         uint bigBankPower;
         uint valutAmount;
     }
-    struct PlayerRewards{
+    struct ThiefRewards{
         address TRDCplayer;
         uint rewardsAmount;
+    }
+    struct CopRewards{
+        address badCop;
+        uint badRewards;
     }
     struct Round {
       uint roundTime;
    }
-
-    
+  
   mapping(address => bool) public player;
   mapping (address => uint[]) public thief;
   mapping(address => CardThief[]) public thiefCardsOwned;
@@ -310,7 +310,8 @@ contract TRDCvalut is BEP20 {
     CardCop[] public cardCop;
     Weapons[] public weapons;
     Banks[] public banks;
-    PlayerRewards[] internal playerRewards;
+    ThiefRewards[] public thiefRewards;
+    CopRewards[] public copRewards;
 
   modifier isPlayer(address _player) {
     require(player[_player]);
@@ -416,10 +417,11 @@ contract TRDCvalut is BEP20 {
             emit totalCops (nameOfCop, powerOfCop);
         }   
     }
-    function addWeapon (string memory _wName, uint _wPower) external onlyOwner{
+    function addWeapon (string memory _wName, uint _wPower, uint _wPrice) external onlyOwner{
         Weapons memory newWeapons = Weapons({
             wName: _wName,
-            wPower: _wPower
+            wPower: _wPower,
+            wPrice: _wPrice
         });
         weapons.push(newWeapons);
     }
@@ -448,7 +450,7 @@ contract TRDCvalut is BEP20 {
     function buyWeapon(uint weaponToBuy) external returns (string memory nameOfWeapon, uint powerOfWeapon){
         require(weapons.length !=0, "There are no Weapons yet");
         emit GetWeapon(nameOfWeapon = weapons[weaponToBuy].wName, powerOfWeapon = weapons[weaponToBuy].wPower); 
-        weaponsOwned[msg.sender].push(Weapons(nameOfWeapon, powerOfWeapon));   
+        weaponsOwned[msg.sender].push(Weapons(nameOfWeapon, powerOfWeapon, 0));   
     }
     function deletePlayerThiefCard(uint cardsIndex) internal{
        thiefCardsOwned[msg.sender][cardsIndex] = thiefCardsOwned[msg.sender][thiefCardsOwned[msg.sender].length -1];
@@ -458,23 +460,56 @@ contract TRDCvalut is BEP20 {
         copCardOwned[msg.sender][cardsIndex] = copCardOwned[msg.sender][copCardOwned[msg.sender].length -1];
         copCardOwned[msg.sender].pop();
     }
-    function addReward (address _TRDCplayer, uint _rewardsAmount) internal{
-        PlayerRewards memory newPlayerRewards = PlayerRewards({
+    function deleteWeaponCard(uint weaponIndex) internal{
+        weaponsOwned[msg.sender][weaponIndex] = weaponsOwned[msg.sender][weaponsOwned[msg.sender].length -1];
+        weaponsOwned[msg.sender].pop();
+    }
+    function useWeapon(uint weaponIndex, uint cardIndex) external{
+        uint weaponPower = weaponsOwned[msg.sender][weaponIndex].wPower;
+        uint thiefCardPower = thiefCardsOwned[msg.sender][cardIndex].tPower;
+        uint updatedCardPower = weaponPower.add(thiefCardPower);
+        deleteWeaponCard(weaponIndex);
+        thiefCardsOwned[msg.sender][cardIndex].tPower = updatedCardPower;
+    }
+    function addThiefReward (address _TRDCplayer, uint _rewardsAmount) internal{
+        ThiefRewards memory newThiefRewards = ThiefRewards({
             TRDCplayer: _TRDCplayer,
             rewardsAmount: _rewardsAmount
         });
-        playerRewards.push(newPlayerRewards);
+        thiefRewards.push(newThiefRewards);
     }
-    function updateReward(uint _updateAmount) internal{
+    function updateThiefReward(uint _updateAmount) internal{
         uint oldAmount;
         uint newAmount;
-        for (uint i=0; i<playerRewards.length; i++){
-            if (playerRewards[i].TRDCplayer == msg.sender){
+        for (uint i=0; i<thiefRewards.length; i++){
+            if (thiefRewards[i].TRDCplayer == msg.sender){
                 newAmount = _updateAmount;
-                oldAmount = playerRewards[i].rewardsAmount;
-                playerRewards[i].rewardsAmount = oldAmount + newAmount;
+                oldAmount = thiefRewards[i].rewardsAmount;
+                thiefRewards[i].rewardsAmount = oldAmount.add(newAmount);
+                return();
             } 
         }
+        addThiefReward(msg.sender, _updateAmount);
+    }
+    function addCopReward (address _badCop, uint _badRewards) internal{
+        CopRewards memory newCopRewards = CopRewards({
+            badCop: _badCop,
+            badRewards: _badRewards
+        });
+        copRewards.push(newCopRewards);
+    }
+    function updateCopReward(uint _updateAmount) internal{
+        uint oldAmount;
+        uint newAmount;
+        for (uint i=0; i<copRewards.length; i++){
+            if (copRewards[i].badCop == msg.sender){
+                newAmount = _updateAmount;
+                oldAmount = copRewards[i].badRewards;
+                copRewards[i].badRewards = oldAmount.add(newAmount);
+                return();
+            }
+        }
+        addCopReward(msg.sender, _updateAmount);
     }
   function addToPlayersList(address _player) internal {
       require(player[_player] != true, "Address already exist");
@@ -557,11 +592,13 @@ contract TRDCvalut is BEP20 {
           _tPower = thiefCardsOwned[msg.sender][cardToUse].tPower;
           if (_tPower > bankPower){
               
-              addReward(msg.sender, _rate);
+              //addReward(msg.sender, _rate);
+              updateThiefReward(_rate);
               heistResult = "You Win, Please wait till the Heist end";
           }
           if (_tPower == bankPower){
-                addReward(msg.sender, _rate1); 
+                //addReward(msg.sender, _rate1); 
+                updateThiefReward(_rate1);
                 heistResult = "You Draw, Please wait till the Heist end"; 
               }
               if (_tPower < bankPower){
@@ -574,26 +611,29 @@ contract TRDCvalut is BEP20 {
       emit bigHeist(bName, bankPower, _tName, heistResult, _give );
       return(heistResult);
   }
-  function runCop(uint cardToUse) external returns(uint amountCollected, uint amountBurned, uint amountbackToRewards){
+  function runCop(uint cardToUse) external{ //returns(uint amountCollected, uint amountBurned, uint amountbackToRewards){
       require(player[msg.sender], "Sorry you are not a player");
       uint _cPower;
       uint _pVault;
       uint _toBurn;
       uint _toRewards;
       uint _toCop;
-      uint moneyToSteal = playerRewards.length.sub(5);
+      uint moneyToSteal = thiefRewards.length.sub(5);
       _cPower = copCardOwned[msg.sender][cardToUse].cPower;
           if (_cPower > moneyToSteal){
-              for (uint i=0; i<playerRewards.length; i++){
-                  _pVault = playerRewards[i].rewardsAmount;
+              for (uint i=0; i<thiefRewards.length; i++){
+                  _pVault = thiefRewards[i].rewardsAmount;
                   if (_pVault > vVault ){
                       _toBurn = _pVault.sub(_pVault.mul(percentageCut).div(100));
                       _toRewards = _pVault.sub(_pVault.mul(percentageCut).div(100));
                       _toCop = _pVault.sub(_pVault.mul(percentageCut).div(100));
                       _pVault = _pVault.sub(_toBurn.add(_toRewards).add(_toCop));
-                      playerRewards[i].rewardsAmount = _pVault;
+                      thiefRewards[i].rewardsAmount = _pVault;
+                      currency.transfer(dEaD, _toBurn);
+                      updateCopReward(_toCop);
                   }
               }
+              deletePlayerCopCard(cardToUse);
           }
 
   }
@@ -603,16 +643,11 @@ contract TRDCvalut is BEP20 {
       if  (balanceOf(msg.sender) == 0){
           removeFromPlayersList(msg.sender);
       } 
-      //claimRewards(); 
+
   }
-  function checkRewards() public {
-      require(currency.balanceOf(address(this)) !=0 , "No rewards yet");
-      rewardsToGive = currency.balanceOf(address(this));
-      groupRewards1 = rewardsToGive.mul(60).div(100) * fractions;
-      groupRewards2 = rewardsToGive.mul(30).div(100) * fractions;
-  }
-  function claimRewards () internal {
-   
+
+  function claimRewards () external {
+   //set Round time then distribute rewards for all players
   }
 
 
