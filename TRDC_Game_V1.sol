@@ -509,14 +509,19 @@ contract TRDCvalut is BEP20 {
     function changePrice(uint256 _cardPrice) external onlyOwner {
         cardPrice = _cardPrice * fractions;
     }
-
-  function buyCard() external setPower(msg.sender) returns (uint _cardPower){
-      //currency.transferFrom(msg.sender, address(this), cardPrice);//Trasfer from User to this contract TRDC token (price of game card) 
-    
-      _mint(msg.sender, 1);
+  function buyManyCards(uint amountOfCards) external {
       if (player[msg.sender] != true){
           addToPlayersList(msg.sender);
       }
+      uint priceOfCards;
+      priceOfCards = cardPrice.mul(amountOfCards);
+      //currency.transferFrom(msg.sender, address(this), priceOfCards);//Trasfer from User to this contract TRDC token (price of game card)
+      for (uint i=0; i<amountOfCards; i++){
+          buyCard();
+      }
+  }  
+  function buyCard() public setPower(msg.sender) returns (uint _cardPower){
+      _mint(msg.sender, 1);
       if (cardPower == 1) {
          buyThiefCard();
       }
