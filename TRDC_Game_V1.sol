@@ -239,6 +239,9 @@ contract TRDCvalut is BEP20 {
     event GetCop(string CopName, uint CopPower);
     event GetWeapon(string WeaponName, uint WeaponPower);
     event BuyWeapon(string WeaponName, uint WeaponPower);
+    event GetPlayerThiefs(string ThiefName, uint ThiefPower);
+    event GetPlayerCops(string CopName, uint CopPower);
+    event GetPlayerWeapons(string WeaponName, uint WeaponPower);
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event WithdrawalBNB(uint256 _amount, address to);
     event WithdrawalToken(address _tokenAddr, uint256 _amount, address to);
@@ -446,6 +449,27 @@ contract TRDCvalut is BEP20 {
         msg.sender))) % cardCop.length;
         emit GetCop(nameOfCop = cardCop[randomCop].cName, powerOfCop = cardCop[randomCop].cPower); 
         copCardOwned[msg.sender].push(CardCop(nameOfCop, powerOfCop));   
+    }
+    function getPlayerThiefs() external returns(string memory _thiefName, uint _thiefPower){  
+        for(uint i=0; i< thiefCardsOwned[msg.sender].length; i++){
+            _thiefName = thiefCardsOwned[msg.sender][i].tName;
+            _thiefPower = thiefCardsOwned[msg.sender][i].tPower;
+            emit GetPlayerThiefs(_thiefName, _thiefPower);
+        }
+    }
+    function getPlayerCops() external returns(string memory _copName, uint _copPower){  
+        for(uint i=0; i< copCardOwned[msg.sender].length; i++){
+            _copName = copCardOwned[msg.sender][i].cName;
+            _copPower = copCardOwned[msg.sender][i].cPower;
+            emit GetPlayerCops(_copName, _copPower);
+        }   
+    }
+    function getPlayerWeapons() external returns(string memory _weaponName, uint _weaponPower){  
+        for(uint i=0; i< weaponsOwned[msg.sender].length; i++){
+            _weaponName = weaponsOwned[msg.sender][i].wName;
+            _weaponPower = weaponsOwned[msg.sender][i].wPower;
+            emit GetPlayerWeapons(_weaponName, _weaponPower);
+        }   
     }
     function buyWeapon(uint weaponToBuy) external returns (string memory nameOfWeapon, uint powerOfWeapon){
         require(weapons.length !=0, "There are no Weapons yet");
