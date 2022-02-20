@@ -245,7 +245,8 @@ contract TRDCvalut is BEP20 {
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event WithdrawalBNB(uint256 _amount, address to);
     event WithdrawalToken(address _tokenAddr, uint256 _amount, address to);
-    event bigHeist(string Bank, uint BankPower, string Thief, string Result, uint Amount);
+    event thiefHeist(string Bank, uint BankPower, string Thief, string Result, uint Amount);
+    event copHeist(uint AmountCollected, uint AmountBurned, uint AmountBackToRewards);
     event totalThiefs (string _nameOfThief, uint _powerOfThief);
     event totalCops (string _nameOfCop, uint _powerOfCop);
 
@@ -268,6 +269,7 @@ contract TRDCvalut is BEP20 {
     uint public _rate1 = 5;
     uint public _rate2 = 0;
     uint _give;
+    uint endTime;
      
     struct CardThief{
         string tName;
@@ -303,7 +305,8 @@ contract TRDCvalut is BEP20 {
    }
   
   mapping(address => bool) public player;
-  mapping (address => uint[]) public thief;
+  mapping (address => bool) public playerIsHolder;
+  mapping (address => bool) public playerIsCop;
   mapping(address => CardThief[]) public thiefCardsOwned;
   mapping(address => CardCop[]) public copCardOwned;
   mapping(address => Weapons[]) public weaponsOwned;
@@ -317,39 +320,43 @@ contract TRDCvalut is BEP20 {
     CopRewards[] public copRewards;
 
   modifier isPlayer(address _player) {
-    require(player[_player]);
+    require(player[_player], "You are not a Player");
+    _;
+  }
+  modifier isPlayerHolder(address _player) {
+    require(playerIsHolder[_player], "Your Vault is empty");
+    _;
+  }
+  modifier isPlayerCop(address _player) {
+    require(playerIsCop[_player], "Your Vault is empty");
     _;
   }
   modifier setPower(address _Player){
       givePower();
-      //thief[_Player].push(cardPower);
      _; 
   }
-  modifier isgroup(uint _group, address _player) {
-    require(groupMembers[_group][_player]);
-    _;
-  }
-  
-    constructor () BEP20("testgame", "TeG") payable{
+
+    constructor () BEP20("TRDC-Game-V1", "|||") payable{
         address msgSender = _msgSender();
         _owner = msgSender;
         emit OwnershipTransferred(address(0), msgSender);
         currency = BEP20(0x80A535c0Bd75B190AADE698e5D9291ea2DCEc1C4);//should change to TRDC address used for testing
-    }
-  
+    }  
     function owner() public view virtual returns (address) {
         return _owner;
     }
-  
     modifier onlyOwner() {
         require(owner() == _msgSender(), "Ownable: caller is not the owner");
         _;
     }
-
     function transferOwnership(address newOwner) public virtual onlyOwner {
         require(newOwner != address(0), "Ownable: new owner is the zero address");
         emit OwnershipTransferred(_owner, newOwner);
         _owner = newOwner;
+    }
+    function startTheGame(uint _roundTime) external onlyOwner{
+        _roundTime = block.timestamp + 2 hours; 
+        endTime = _roundTime;
     }
     function setPercentageCut(uint _percentageCut) internal onlyOwner{
         percentageCut = _percentageCut;
@@ -537,15 +544,29 @@ contract TRDCvalut is BEP20 {
         }
         addCopReward(msg.sender, _updateAmount);
     }
+  function deleteThiefRewards(uint rewardIndex) internal{
+        thiefRewards[rewardIndex] = thiefRewards[thiefRewards.length -1];
+        thiefRewards.pop();
+    }
+    function deleteCopRewards(uint rewardIndex) internal{
+        copRewards[rewardIndex] = copRewards[copRewards.length -1];
+        copRewards.pop();
+    }
   function addToPlayersList(address _player) internal {
       require(player[_player] != true, "Address already exist");
-    player[_player] = true;
+      player[_player] = true;
   }
-
+  function addPlayerVault(address _player) internal{
+      require(playerIsHolder[_player] != true, "Address already exist");
+      playerIsHolder[_player] = true;
+  }
+  function addCopVault(address _player) internal{
+      require(playerIsCop[_player] != true, "Address already exist");
+      playerIsCop[_player] = true;
+  }
   function removeFromPlayersList(address _player) internal {
     player[_player] = false;
   }
-
   function setRwardRate(uint rate, uint rate1, uint rate2) external onlyOwner {
       _rate = rate;
       _rate1 = rate1;
@@ -557,8 +578,8 @@ contract TRDCvalut is BEP20 {
         if (cardPower == 0){
             cardPower = 1;
         }
-    }
-    function giveBankPower(uint bankIndex) internal {
+  }
+  function giveBankPower(uint bankIndex) internal {
         bankPower = uint(keccak256(abi.encodePacked(block.timestamp,block.difficulty,  
         msg.sender))) % numberBank;
         if (bankPower == 0){
@@ -566,14 +587,27 @@ contract TRDCvalut is BEP20 {
         }
         bName = banks[bankIndex].bankName;
 
-    }
-    function changePrice(uint256 _cardPrice) external onlyOwner {
+  }
+  function changePrice(uint256 _cardPrice) external onlyOwner {
         cardPrice = _cardPrice * fractions;
-    }
-  function buyManyCards(uint amountOfCards) external {
+  }
+  function addPlayer() internal{
       if (player[msg.sender] != true){
           addToPlayersList(msg.sender);
       }
+  }
+  function addVault() internal{
+      if (playerIsHolder[msg.sender] != true){
+          addPlayerVault(msg.sender);
+      }
+  }
+  function addCopVault() internal{
+      if (playerIsCop[msg.sender] != true){
+          addCopVault(msg.sender);
+      }
+  }
+  function buyManyCards(uint amountOfCards) external {
+      addPlayer();
       uint priceOfCards;
       priceOfCards = cardPrice.mul(amountOfCards);
       currency.transferFrom(msg.sender, address(this), priceOfCards);//Trasfer from User to this contract TRDC token (price of game card)
@@ -581,7 +615,7 @@ contract TRDCvalut is BEP20 {
           buyCard();
       }
   }  
-  function buyCard() public setPower(msg.sender) returns (uint _cardPower){
+  function buyCard() internal setPower(msg.sender){
       _mint(msg.sender, 1);
       if (cardPower == 1) {
          buyThiefCard();
@@ -594,14 +628,12 @@ contract TRDCvalut is BEP20 {
          buyThiefCard();
          buyCopCard();
       }
-      return (_cardPower = cardPower);
   }
   function resetBankPower(uint bankIndex) internal returns (string memory BankName, uint BankPower){
       giveBankPower(bankIndex);
       BankName = banks[bankIndex].bankName;
       BankPower = bankPower;
   }
-
   function approveOnBothSides()public {
       //first get approval from currency contract
       approve(msg.sender, MAX_UINT);//approval should be called at wallet connect
@@ -609,36 +641,39 @@ contract TRDCvalut is BEP20 {
   
   function startHeistThief (uint cardType, uint cardToUse, uint bankToHeist) public  returns (string memory heistResult){
       require(player[msg.sender], "Sorry you are not a player");
+      require(endTime > block.timestamp, "The round has ended");
       uint _tPower;
-      
+      bName = banks[bankToHeist].bankName;
       string memory _tName = thiefCardsOwned[msg.sender][cardToUse].tName;
       
       resetBankPower(bankToHeist);
       if (cardType== 1){
           _tPower = thiefCardsOwned[msg.sender][cardToUse].tPower;
           if (_tPower > bankPower){
-              
-              //addReward(msg.sender, _rate);
+              _rate = _give;
               updateThiefReward(_rate);
               heistResult = "You Win, Please wait till the Heist end";
           }
           if (_tPower == bankPower){
-                //addReward(msg.sender, _rate1); 
+                _rate1 = _give;
                 updateThiefReward(_rate1);
                 heistResult = "You Draw, Please wait till the Heist end"; 
               }
               if (_tPower < bankPower){
                   deletePlayerThiefCard(cardToUse);
+                  endHeist();
+                  removePlayer();
                 return("You Lost, try again");
               }
       }
       deletePlayerThiefCard(cardToUse);
       endHeist();
-      emit bigHeist(bName, bankPower, _tName, heistResult, _give );
+      emit thiefHeist(bName, _tPower, _tName, heistResult, _give );
       return(heistResult);
   }
-  function runCop(uint cardToUse) external{ //returns(uint amountCollected, uint amountBurned, uint amountbackToRewards){
+  function runCop(uint cardToUse) external returns(uint amountCollected, uint amountBurned, uint amountbackToRewards){
       require(player[msg.sender], "Sorry you are not a player");
+      require((endTime.add(30 minutes)) > block.timestamp, "The round has ended");
       uint _cPower;
       uint _pVault;
       uint _toBurn;
@@ -657,26 +692,55 @@ contract TRDCvalut is BEP20 {
                       thiefRewards[i].rewardsAmount = _pVault;
                       currency.transfer(dEaD, _toBurn);
                       updateCopReward(_toCop);
+                      addVault();
                   }
               }
               deletePlayerCopCard(cardToUse);
           }
-
+          emit copHeist(_toCop, _toBurn, _toRewards);
+          return(_toCop, _toBurn, _toRewards);
   }
-  function endHeist () internal {
+  function endHeist() internal {
       transferFrom(msg.sender, dEaD, 1);
-      
+      addVault();
+  }
+  function removePlayer()internal{
       if  (balanceOf(msg.sender) == 0){
           removeFromPlayersList(msg.sender);
-      } 
-
+      }
   }
-
-  function claimRewards () external {
-   //set Round time then distribute rewards for all players
+  function claimRewardsThief() external returns(uint _thiefReward){
+      require(playerIsHolder[msg.sender], "Sorry you you don't have any rewards");
+      require(block.timestamp > endTime, "Please wait till the round ends");
+      removePlayer();
+      playerIsHolder[msg.sender] = false;
+      address _thiefAddress;
+     for(uint i=0; i<thiefRewards.length; i++){
+         _thiefAddress = thiefRewards[i].TRDCplayer;
+         _thiefReward = thiefRewards[i].rewardsAmount;
+         if(_thiefAddress == msg.sender){
+             deleteThiefRewards(i);
+             currency.transfer(msg.sender, _thiefReward);
+             return(_thiefReward);
+         }
+     }
   }
-
-
+  function claimRewardsCop() external returns(uint _copReward){
+      require(playerIsCop[msg.sender], "Sorry you you don't have any rewards");
+      require(block.timestamp > endTime, "Please wait till the round ends");
+      removePlayer();
+      playerIsCop[msg.sender] = false;
+      address _copAddress;
+     for(uint i=0; i<copRewards.length; i++){
+         _copAddress = copRewards[i].badCop;
+         _copReward = copRewards[i].badRewards;
+         if(_copAddress == msg.sender){
+             deleteCopRewards(i);
+             currency.transfer(msg.sender, _copReward);
+             return(_copReward);
+         }
+     }
+  }
   function withdrawalToken(address _tokenAddr, uint256 _amount, address to) external onlyOwner() {
         iBEP20 token = iBEP20(_tokenAddr);
         emit WithdrawalToken(_tokenAddr, _amount, to);
