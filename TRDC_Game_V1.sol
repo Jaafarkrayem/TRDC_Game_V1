@@ -310,7 +310,6 @@ contract TRDCvalut is BEP20 {
   mapping(address => CardThief[]) public thiefCardsOwned;
   mapping(address => CardCop[]) public copCardOwned;
   mapping(address => Weapons[]) public weaponsOwned;
-  mapping(uint => mapping(address => bool)) public groupMembers;
 
     CardThief[] public cardThief;
     CardCop[] public cardCop;
@@ -336,11 +335,11 @@ contract TRDCvalut is BEP20 {
      _; 
   }
 
-    constructor () BEP20("TRDC-Game-V1", "|||") payable{
+    constructor () BEP20("TRDC-Game-V1", "|$|") payable{
         address msgSender = _msgSender();
         _owner = msgSender;
         emit OwnershipTransferred(address(0), msgSender);
-        currency = BEP20(0x80A535c0Bd75B190AADE698e5D9291ea2DCEc1C4);//should change to TRDC address used for testing
+        currency = BEP20(0xF8df86f7E8a16eaB149756843C9066967c562BB2);//should change to TRDC address used for testing
     }  
     function owner() public view virtual returns (address) {
         return _owner;
