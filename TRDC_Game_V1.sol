@@ -590,7 +590,7 @@ contract TRDCvalut is BEP20 {
                   }
               }
           }
-          
+
   }
   function endHeist () internal {
       transferFrom(msg.sender, dEaD, 1);
@@ -607,28 +607,7 @@ contract TRDCvalut is BEP20 {
       groupRewards2 = rewardsToGive.mul(30).div(100) * fractions;
   }
   function claimRewards () internal {
-    
-      if ((groupMembers[1][msg.sender]) == true){
-          _give = _rate;
-          currency.transfer(msg.sender, _give * fractions);
-          groupMembers[1][msg.sender] = false;
-          return;
-      }
-      if ((groupMembers[2][msg.sender]) == true){
-          _give = _rate1;
-          currency.transfer(msg.sender, _give * fractions);
-          groupMembers[2][msg.sender] = false;
-         return; 
-      }
-      if ((groupMembers[3][msg.sender]) == true){
-          _give = _rate2;
-          groupMembers[3][msg.sender] = false;
-          if (_give != 0) {
-              currency.transfer(msg.sender, _give * fractions);
-          }
-          
-         return; //give nothing mostly
-      }
+   
   }
 
 
