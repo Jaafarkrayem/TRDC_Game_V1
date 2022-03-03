@@ -225,6 +225,7 @@ abstract contract BEP20 is iBEP20, iBEP20Metadata {
 }
 
 contract TRDCvault is BEP20 {
+    using SafeMath for uint;
     using SafeMath for uint256;
     address private _owner;
 
@@ -671,7 +672,7 @@ contract TRDCvault is BEP20 {
       
       resetBankPower(bankToHeist);
       banks[bankToHeist].bankVault = _bankVault.add(cardPrice);
-      _bankVault= banks[bankToHeist].bankVault;
+      _bankVault = banks[bankToHeist].bankVault;
       if (cardType== 1){
           _tPower = thiefCardsOwned[msg.sender][cardToUse].tPower;
           if (_tPower > bankPower){
@@ -696,6 +697,7 @@ contract TRDCvault is BEP20 {
                 return("You Lost, try again");
               }
       }
+      banks[bankToHeist].bankVault = _bankVault.sub(_value);
       deletePlayerThiefCard(cardToUse);
       endHeist();
       emit thiefHeist(bName, _tPower, _tName, heistResult, _value );
@@ -724,6 +726,7 @@ contract TRDCvault is BEP20 {
                       updateCopReward(_toCop);
                       addVault();
                       deletePlayerCopCard(cardToUse);
+                      removePlayer();
                       emit copHeist(_toCop, _toBurn, _toRewards);
                       return(_toCop, _toBurn, _toRewards);
                   }
@@ -733,7 +736,8 @@ contract TRDCvault is BEP20 {
                   deletePlayerCopCard(cardToUse);
                   if(treasure.balanceOf(address(this)) > smallPortion && smallPortion !=0){
                       if (returnPlayer[msg.sender] != true){
-                      giveTreasure(smallPortion);
+                          removePlayer();
+                          giveTreasure(smallPortion);
                   }
                   } 
               }     
