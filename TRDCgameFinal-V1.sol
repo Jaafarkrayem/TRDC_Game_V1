@@ -3,7 +3,7 @@
 
 // TRDC Game
 
-pragma solidity ^0.8.10;
+pragma solidity ^0.8.12;
 
 library SafeMath {
     function tryAdd(uint256 a, uint256 b) internal pure returns (bool, uint256) {
@@ -106,7 +106,6 @@ interface iBEP20Metadata is iBEP20 {
     function symbol() external view returns (string memory);
     function decimals() external view returns (uint8);
 }
-
 abstract contract BEP20 is iBEP20, iBEP20Metadata {
     mapping(address => mapping(address => uint256)) private _allowances;
     function _msgSender() internal view virtual returns (address) {
@@ -223,7 +222,6 @@ abstract contract BEP20 is iBEP20, iBEP20Metadata {
         emit Transfer(address(0), account, amount);
     }  
 }
-
 contract TRDCvault is BEP20 {
     using SafeMath for uint;
     using SafeMath for uint256;
@@ -257,12 +255,13 @@ contract TRDCvault is BEP20 {
     uint number = 4;
     uint constant MAX_UINT = 2**256 - 1;
     uint public vVault = 500;
-    uint public percentageCut = 15;
+    uint public percentageCut = 20;
     uint endTime;
     string private guessThisOne;
     uint private randomNounce;
     uint public cardNounce;
     uint public roundsCount;
+    bool public gameRunning = false;
      
     struct CardThief{
         string tName;
@@ -344,11 +343,16 @@ contract TRDCvault is BEP20 {
         endTime = _roundTime;
         guessThisOne = guess;
         roundsCount++;
+        gameRunning = true;
     }
     function startTheGameInternal() internal{
         uint _roundTime = block.timestamp + 2 hours; 
         endTime = _roundTime;
         roundsCount++;
+        gameRunning = true;
+    }
+    function pauseGame() external onlyOwner{
+        gameRunning = false;
     }
     function timeLeft() public view returns(uint TimeLeft){
         TimeLeft = endTime.sub(block.timestamp);
@@ -595,7 +599,7 @@ contract TRDCvault is BEP20 {
   function givePower() internal {
         cardPower = jeffRandomness() % number;
         if (cardPower == 0){
-            cardPower == 1;
+            cardPower = 1;
         }
         cardNounce++;
   }
@@ -603,7 +607,7 @@ contract TRDCvault is BEP20 {
       uint bankPower;
         bankPower = jeffRandomness() % banks.length;
         if (bankPower == 0){
-            bankPower == banks.length;
+            bankPower = banks.length;
         }
         banks[bankIndex].bankPower = bankPower;
   }
@@ -626,7 +630,8 @@ contract TRDCvault is BEP20 {
       }
   }
 
-  function buyCard() external setPower(msg.sender){
+  function buyCard() external setPower(msg.sender) returns (uint CardType){
+      require(gameRunning != false, "Game is paused by owners!");
       if(endTime < block.timestamp){
           startTheGameInternal();
       }
@@ -635,14 +640,17 @@ contract TRDCvault is BEP20 {
       _mint(msg.sender, 1);
       if (cardPower == 1) {
          buyThiefCard();
+         return (cardPower);
       }
       if (cardPower == 2) {
          buyThiefCard();
+         return (cardPower);
       }
       if (cardPower == 3) {
          _mint(msg.sender, 1);
          buyThiefCard();
          buyCopCard();
+         return (cardPower);
       }
   }
   function resetBankPower(uint bankIndex) internal returns (string memory BankName, uint BankPower){
@@ -660,6 +668,7 @@ contract TRDCvault is BEP20 {
   }
   
   function startHeistThief (uint cardType, uint cardToUse, uint bankToHeist) public  returns (string memory heistResult){
+      require(gameRunning != false, "Game is paused by owners!");
       uint _bankVault= banks[bankToHeist].bankVault;
       require(player[msg.sender], "Sorry you are not a player");
       require(endTime > block.timestamp, "The round has ended");
@@ -678,12 +687,12 @@ contract TRDCvault is BEP20 {
           if (_tPower > bankPower){
               _value = _bankVault.mul(60).div(100);
               updateThiefReward(_value);
-              heistResult = "You Win, Please wait till the Heist end";
+              heistResult = "You Win, you can claim your reward after 1 hour of the round start";
           }
           if (_tPower == bankPower){
                 _value = cardPrice.div(2);
                 updateThiefReward(_value);
-                heistResult = "You Draw, Please wait till the Heist end"; 
+                heistResult = "You Draw, you can claim your reward after 1 hour of the round start"; 
               }
               if (_tPower < bankPower){
                   deletePlayerThiefCard(cardToUse);
@@ -694,7 +703,7 @@ contract TRDCvault is BEP20 {
                       giveTreasure(smallPortion);
                   }
                   } 
-                return("You Lost, try again");
+                return("You Lost, call 911");
               }
       }
       banks[bankToHeist].bankVault = _bankVault.sub(_value);
@@ -704,7 +713,8 @@ contract TRDCvault is BEP20 {
       return(heistResult);
   }
   function runCop(uint cardToUse) external returns(uint amountCollected, uint amountBurned, uint amountbackToRewards){
-      require(player[msg.sender], "Sorry you are not a player");
+      require(gameRunning != false, "Game is paused by owners!");
+      require(player[msg.sender], "You can apply for a cop position call 911");
       require(block.timestamp >= (endTime.sub(90 minutes)), "You can run the cop only after 30 min of round start time!");
       uint _cPower;
       uint _pVault;
@@ -752,6 +762,7 @@ contract TRDCvault is BEP20 {
       }
   }
   function claimRewardsThief() external returns(uint _thiefReward){
+      require(gameRunning != false, "Game is paused by owners!");
       require(playerIsHolder[msg.sender], "Sorry you you don't have any rewards");
       require(block.timestamp <= endTime.sub(1 hours), "Please wait one hour after round starts");
       removePlayer();
@@ -768,6 +779,7 @@ contract TRDCvault is BEP20 {
      }
   }
   function claimRewardsCop() external returns(uint _copReward){
+      require(gameRunning != false, "Game is paused by owners!");
       require(playerIsCop[msg.sender], "Sorry you you don't have any rewards");
       require(block.timestamp <= endTime.sub(1 hours), "Please wait one hour after round starts");
       removePlayer();
